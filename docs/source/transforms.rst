@@ -529,6 +529,13 @@ Intensity
     :special-members: __call__
 
 
+`FlipBrightness`
+""""""""""""""""
+.. autoclass:: FlipBrightness
+    :members:
+    :special-members: __call__
+
+
 `ForegroundMask`
 """"""""""""""""
 .. image:: https://raw.githubusercontent.com/Project-MONAI/DocImages/main/transforms/ForegroundMask.png
@@ -1659,6 +1666,13 @@ Intensity (Dict)
 .. autoclass:: HistogramNormalized
     :members:
     :special-members: __call__
+
+`FlipBrightnessd`
+"""""""""""""""""
+.. autoclass:: FlipBrightnessd
+    :members:
+    :special-members: __call__
+
 
 `ForegroundMaskd`
 """""""""""""""""

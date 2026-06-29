@@ -28,6 +28,7 @@ from monai.transforms.intensity.array import (
     AdjustContrast,
     ClipIntensityPercentiles,
     ComputeHoVerMaps,
+    FlipBrightness,
     ForegroundMask,
     GaussianSharpen,
     GaussianSmooth,
@@ -97,6 +98,7 @@ __all__ = [
     "RandCoarseDropoutd",
     "RandCoarseShuffled",
     "HistogramNormalized",
+    "FlipBrightnessd",
     "ForegroundMaskd",
     "ComputeHoVerMapsd",
     "RandGaussianNoiseD",
@@ -164,6 +166,8 @@ __all__ = [
     "HistogramNormalizeDict",
     "RandKSpaceSpikeNoiseD",
     "RandKSpaceSpikeNoiseDict",
+    "FlipBrightnessD",
+    "FlipBrightnessDict",
     "ForegroundMaskD",
     "ForegroundMaskDict",
     "ComputeHoVerMapsD",
@@ -1884,6 +1888,28 @@ class HistogramNormalized(MapTransform):
         return d
 
 
+class FlipBrightnessd(MapTransform):
+    """
+    Dictionary-based wrapper of :py:class:`monai.transforms.FlipBrightness`.
+
+    Args:
+        keys: keys of the corresponding items to be transformed.
+        allow_missing_keys: don't raise exception if key is missing.
+    """
+
+    backend = FlipBrightness.backend
+
+    def __init__(self, keys: KeysCollection, allow_missing_keys: bool = False) -> None:
+        super().__init__(keys, allow_missing_keys)
+        self.flipper = FlipBrightness()
+
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
+        d = dict(data)
+        for key in self.key_iterator(d):
+            d[key] = self.flipper(d[key])
+        return d
+
+
 class ForegroundMaskd(MapTransform):
     """
     Creates a binary mask that defines the foreground based on thresholds in RGB or HSV color space.
@@ -1995,5 +2021,6 @@ RandKSpaceSpikeNoiseD = RandKSpaceSpikeNoiseDict = RandKSpaceSpikeNoised
 RandCoarseDropoutD = RandCoarseDropoutDict = RandCoarseDropoutd
 HistogramNormalizeD = HistogramNormalizeDict = HistogramNormalized
 RandCoarseShuffleD = RandCoarseShuffleDict = RandCoarseShuffled
+FlipBrightnessD = FlipBrightnessDict = FlipBrightnessd
 ForegroundMaskD = ForegroundMaskDict = ForegroundMaskd
 ComputeHoVerMapsD = ComputeHoVerMapsDict = ComputeHoVerMapsd
