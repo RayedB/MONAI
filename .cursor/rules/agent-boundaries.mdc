@@ -1,0 +1,21 @@
+---
+description: Hard boundaries for AI agents working in MONAI.
+alwaysApply: true
+---
+
+# Agent boundaries (hard limits)
+
+When implementing a transform, you may **only** create or modify:
+
+- `monai/transforms/<target-category>/array.py`
+- `monai/transforms/<target-category>/dictionary.py`
+- `monai/transforms/__init__.py` — **registration only** (add exports; don't restructure)
+- the relevant entry in `docs/source/transforms.rst`
+- the two test files `tests/transforms/test_<name>.py` and `tests/transforms/test_<name>d.py`
+
+**Never touch:** `monai/networks/`, `monai/csrc/`, `monai/data/`, `monai/engines/`,
+`monai/apps/`, other transform categories, CI (`.github/`), or build/config files. **No external
+code.**
+
+If a task appears to need anything outside this set, **stop and ask** — don't expand scope on your
+own. Humans own every review/merge gate; agents only move work *into* review.

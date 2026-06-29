@@ -1,0 +1,35 @@
+---
+description: MONAI transform duality — every transform ships an array class AND a d-suffixed dictionary wrapper.
+globs: monai/transforms/**/*.py
+alwaysApply: false
+---
+
+# Transform pattern: array + dictionary duality
+
+Every new transform ships **both** versions. Mirror the closest existing pair (reference:
+`ShiftIntensity` / `ShiftIntensityd` in `monai/transforms/intensity/`).
+
+## Array version (`array.py`)
+- Base `Transform` — or `RandomizableTransform` if stochastic.
+- Class attribute `backend = [TransformBackends.TORCH, TransformBackends.NUMPY]`.
+- Typed call `def __call__(self, img: NdarrayOrTensor) -> NdarrayOrTensor:`, beginning with
+  `img = convert_to_tensor(img, track_meta=get_track_meta())`.
+- Add the class name to `__all__`.
+
+## Dictionary version (`dictionary.py`)
+- Base `MapTransform` (stochastic: `RandomizableTransform, MapTransform`); name = array name + `d`.
+- Wraps the array class; reuse `backend = ArrayClass.backend`.
+- `__init__(self, keys: KeysCollection, ..., allow_missing_keys: bool = False)` →
+  `super().__init__(keys, allow_missing_keys)`; `__call__` loops `for key in self.key_iterator(d):`.
+- Docstring cross-references the array class:
+  ``Dictionary-based wrapper of :py:class:`monai.transforms.Foo`.``
+- Add `"Food"` and `"FooDict"` to `__all__`, and the **triple alias** at the file bottom:
+  `FooD = FooDict = Food`.
+
+## Register in BOTH places
+- `monai/transforms/__init__.py` — array class in the `.<cat>.array` import block; `Food, FooD,
+  FooDict` in the `.<cat>.dictionary` block (keep alphabetical; isort enforces).
+- `docs/source/transforms.rst` — `.. autoclass:: Foo` in the category section; `.. autoclass:: Food`
+  under **Dictionary Transforms**.
+
+See [AGENTS.md](mdc:AGENTS.md) for the full golden path.

@@ -1,0 +1,20 @@
+---
+description: MONAI file conventions — header, future annotations, types, docstrings, naming, placement.
+globs: monai/**/*.py,tests/**/*.py
+alwaysApply: false
+---
+
+# MONAI file conventions
+
+- **Copyright header**: every `.py` opens with the 10-line Apache-2.0 MONAI header (copy it verbatim
+  from any neighbouring file; `./runtests.sh --copyright` enforces it).
+- **`from __future__ import annotations`** is the first import in every module.
+- **Full type hints**: `NdarrayOrTensor` (images), `KeysCollection` (`keys`),
+  `dict[Hashable, NdarrayOrTensor]` (dictionary `__call__` returns).
+- **Google-style docstrings** with an `Args:` block.
+- **Correct placement**: transforms go under the right `monai/transforms/<category>/`; don't add
+  cross-category code.
+- **Naming**: PascalCase classes; snake_case modules/tests; dictionary class = array name + `d`;
+  tests `test_<name>.py` / `test_<name>d.py`.
+
+Source of truth is `./runtests.sh`. See [AGENTS.md](mdc:AGENTS.md).

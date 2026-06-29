@@ -1,0 +1,23 @@
+---
+description: MONAI transform tests — paired, unittest-based, cross-backend.
+globs: tests/transforms/**/*.py
+alwaysApply: false
+---
+
+# Transform tests
+
+A contribution needs **paired tests**: `tests/transforms/test_<name>.py` **and**
+`tests/transforms/test_<name>d.py`. Mirror a real reference test (e.g. `test_shift_intensity.py` /
+`test_shift_intensityd.py`).
+
+- **unittest-based**: subclass `unittest.TestCase` or a MONAI fixture such as
+  `NumpyImageTestCase2D`; end with `if __name__ == "__main__": unittest.main()`.
+- Use **`parameterized.expand` with `TEST_CASE_*` lists** where the reference does.
+- **Assert cross-backend agreement**: run the transform for each backend in `TEST_NDARRAYS` and
+  assert the result matches the expected value via `assert_allclose(..., type_test="tensor")` — the
+  transform must agree across Torch and NumPy.
+- Cover the **happy path + one numerical/dtype edge** (e.g. integer overflow / dtype preservation).
+- Import from the public API: `from monai.transforms import Foo, Food`.
+- **Only claim coverage you actually wrote.**
+
+See [AGENTS.md](mdc:AGENTS.md).
