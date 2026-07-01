@@ -1,0 +1,78 @@
+# Scaffold-stage relay (see LIFECYCLE.md).
+#
+# The scaffold agent is a Cursor AUTOMATION configured in the dashboard
+# (cursor.com/automations): its prompt, model, and tools live THERE — this
+# workflow is only the trigger wire. Cursor's UI automations can trigger on PR
+# label changes but not ISSUE label changes (verified in the dashboard), so
+# when /approve-tests swaps an issue to stage:scaffold (a real-user event — the
+# human approval IS the dispatch), this job POSTs to the automation's private
+# webhook and posts a receipt on the issue. All actual work happens in the
+# cloud agent: it clones the repo, follows
+# .cursor/commands/scaffold-transform.md, and ends with a PR into
+# stage:in-review.
+#
+# Secrets required:
+#   CURSOR_AUTOMATION_WEBHOOK_URL   — the automation's webhook endpoint
+#   CURSOR_AUTOMATION_WEBHOOK_TOKEN — the API key shown when saving the automation
+
+name: Scaffold agent (cloud relay)
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to scaffold (operator override)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write  # post the trigger receipt on the issue
+
+concurrency:
+  group: scaffold-${{ github.event.issue.number || github.event.inputs.issue }}
+
+jobs:
+  relay:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'stage:scaffold' &&
+       contains(github.event.issue.labels.*.name, 'type:transform-request') &&
+       github.event.issue.state == 'open')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue }}
+    steps:
+      - name: Trigger the Cursor automation webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.CURSOR_AUTOMATION_WEBHOOK_URL }}
+          WEBHOOK_TOKEN: ${{ secrets.CURSOR_AUTOMATION_WEBHOOK_TOKEN }}
+        run: |
+          BODY=$(jq -n \
+            --arg issue "$ISSUE_NUMBER" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg url "https://github.com/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" \
+            '{event: "stage:scaffold", issue_number: $issue, repository: $repo, issue_url: $url}')
+          HTTP_CODE=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" -X POST "$WEBHOOK_URL" \
+            -H "Authorization: Bearer $WEBHOOK_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data "$BODY")
+          echo "webhook response: HTTP $HTTP_CODE"
+          cat /tmp/resp.txt || true
+          case "$HTTP_CODE" in
+            2*) ;;
+            *)
+              gh issue comment "$ISSUE_NUMBER" --body "The cloud scaffold automation failed to trigger (HTTP $HTTP_CODE) - see the Actions run log. An operator can retry with: gh workflow run scaffold-agent.yml -f issue=$ISSUE_NUMBER"
+              exit 1
+              ;;
+          esac
+          {
+            echo "**Cloud scaffold automation triggered** for this issue."
+            echo ""
+            echo "The Cursor cloud agent is building from the approved test design (run history: the automation's page on cursor.com). It opens a PR *into* stage:in-review when verification is green. A human reviews and merges - nothing advances on its own."
+          } > /tmp/receipt.md
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/receipt.md

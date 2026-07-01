@@ -34,8 +34,10 @@ for a transform request. See `LIFECYCLE.md` at the repo root: this is the `stage
 gh issue edit <n> --remove-label "stage:test-review" --add-label "stage:scaffold"
 gh issue comment <n> --body "✅ Test design approved by <approver> (<date>). Advancing to scaffold."
 ```
-Then say plainly: the tests are approved; engineering can now scaffold the transform, and the
-resulting code goes through its **own** human review before merge.
+Then say plainly: the tests are approved, and **the label swap you just made is the dispatch** —
+it fires the cloud scaffold automation (via `.github/workflows/scaffold-agent.yml`), which builds
+the transform from the approved test design and opens a PR. Watch the issue for the launch
+receipt; the resulting code goes through its **own** human review before merge.
 
 **Request changes:**
 ```
