@@ -42,6 +42,7 @@ jobs:
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}  # no checkout in this job — gh needs the repo explicitly
       ISSUE_NUMBER: ${{ github.event.inputs.issue }}
     steps:
       - name: Trigger the Cursor automation webhook
