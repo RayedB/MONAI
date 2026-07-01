@@ -1,0 +1,136 @@
+# Intake stage of the transform-request lifecycle (see LIFECYCLE.md).
+#
+# Guards core contributors' time at the front door. Two layers, cheapest first:
+#   1. DETERMINISTIC (no agent, free): .github/scripts/check-transform-template.py
+#      verifies the required sections. Fail -> comment + `invalid` label + closed
+#      as "not planned", with a link to refile via the form. No agent run spent.
+#   2. AGENT (Cursor CLI, headless): runs .cursor/skills/triage-transform-request/
+#      SKILL.md — scope guard (PyTorch / wrong-area -> out-of-scope), duplicate
+#      guard (existing transform covers it -> duplicate), clarity gate (hold +
+#      questions), or advance to stage:test-design.
+#
+# Chaining note: label changes made with GITHUB_TOKEN never trigger workflows, so
+# on "advance" the agent explicitly runs `gh workflow run test-design-agent.yml`
+# — workflow_dispatch events ALWAYS create runs (GitHub docs). That is why this
+# job needs `actions: write`.
+#
+# Requires the CURSOR_API_KEY repository secret.
+
+name: Triage agent
+
+on:
+  issues:
+    types: [opened, labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to (re-)triage
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  actions: write  # chain: dispatch test-design-agent.yml on advance
+
+concurrency:
+  group: triage-${{ github.event.issue.number || github.event.inputs.issue }}
+  cancel-in-progress: true  # opened + labeled-at-creation can double-fire; keep one
+
+jobs:
+  triage:
+    # In scope: transform requests entering intake — by form label, by [Transform]
+    # title (manual filings), by a human re-applying stage:triage (re-triage), or
+    # by operator dispatch. Out of scope: issues already past triage.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        (
+          (github.event.action == 'opened' &&
+           (startsWith(github.event.issue.title, '[Transform]') ||
+            contains(github.event.issue.labels.*.name, 'stage:triage'))) ||
+          (github.event.action == 'labeled' &&
+           github.event.label.name == 'stage:triage')
+        ) &&
+        !contains(github.event.issue.labels.*.name, 'stage:test-design') &&
+        github.event.issue.state == 'open'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Template check (deterministic — no agent)
+        id: template
+        run: |
+          gh issue view "$ISSUE_NUMBER" --json body -q .body \
+            | python3 .github/scripts/check-transform-template.py
+
+      - name: Reject — invalid template (comment, label, close not planned)
+        if: steps.template.outputs.ok == 'false'
+        run: |
+          FORM_URL="${{ github.server_url }}/${{ github.repository }}/issues/new?template=transform-request.yml"
+          gh issue comment "$ISSUE_NUMBER" --body "Thanks for the request — but it doesn't follow the transform-request template, so we can't triage it as filed. Missing or empty: **${{ steps.template.outputs.missing }}**.
+
+          Please refile using the [transform request form]($FORM_URL) — it asks for exactly what we need, in plain language (no engineering knowledge required). Closing this one as not planned; the form filing will enter the pipeline automatically."
+          gh issue edit "$ISSUE_NUMBER" --add-label "invalid"
+          gh issue close "$ISSUE_NUMBER" --reason "not planned"
+
+      - name: Normalize intake labels
+        if: steps.template.outputs.ok == 'true'
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --add-label "type:transform-request,stage:triage"
+
+      - name: Install Cursor CLI
+        if: steps.template.outputs.ok == 'true'
+        run: |
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+
+      - name: Restrict agent permissions for CI (read-only tree, gh/git only)
+        if: steps.template.outputs.ok == 'true'
+        run: |
+          cat > .cursor/cli.json <<'JSON'
+          {
+            "permissions": {
+              "allow": [
+                "Read(**)",
+                "Shell(gh)",
+                "Shell(git)",
+                "Shell(ls)",
+                "Shell(cat)",
+                "Shell(head)",
+                "Shell(grep)",
+                "Shell(find)"
+              ],
+              "deny": [
+                "Write(**)",
+                "Shell(curl)",
+                "Shell(wget)",
+                "Shell(pip)",
+                "Shell(python)",
+                "Shell(python3)"
+              ]
+            }
+          }
+          JSON
+
+      - name: Run triage-transform-request skill (headless)
+        if: steps.template.outputs.ok == 'true'
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          {
+            echo "CI mode — you are running headless in GitHub Actions on ${GITHUB_REPOSITORY}."
+            echo "Execute the skill below for issue #${ISSUE_NUMBER}."
+            echo "gh is already authenticated via GH_TOKEN — never run 'gh auth' commands."
+            echo "The template check already passed deterministically — start at the scope guard."
+            echo "You are read-only on the working tree: triage only, write no files, open no PR."
+            echo "---"
+            cat .cursor/skills/triage-transform-request/SKILL.md
+          } > "$RUNNER_TEMP/prompt.md"
+          AGENT_BIN="$(command -v agent || command -v cursor-agent)"
+          "$AGENT_BIN" -p "$(cat "$RUNNER_TEMP/prompt.md")" --force --output-format text

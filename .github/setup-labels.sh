@@ -31,4 +31,9 @@ label "priority:low"     "c2e0c6" "Low priority"
 label "priority:medium"  "fef2c0" "Medium priority"
 label "priority:high"    "e11d21" "High priority"
 
-echo "Done. Created/updated 10 lifecycle labels."
+# Triage rejection outcomes (issue closed as "not planned" — see triage-agent.yml)
+label "invalid"      "e4e669" "Rejected at triage: doesn't follow the transform-request template"
+label "duplicate"    "cfd3d7" "Rejected at triage: an existing transform already covers this"
+label "out-of-scope" "e99695" "Rejected at triage: belongs in PyTorch or another MONAI area, not a transform"
+
+echo "Done. Created/updated 13 lifecycle labels."

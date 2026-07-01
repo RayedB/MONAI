@@ -89,6 +89,7 @@ jobs:
             echo "Execute the skill below for issue #${ISSUE_NUMBER}."
             echo "gh is already authenticated via GH_TOKEN — never run 'gh auth' commands."
             echo "You are read-only on the working tree: design tests, write no files, open no PR."
+            echo "Exactly one stage:* label at a time: when you add stage:test-review, remove ANY other stage:* label the issue carries (stage:test-design, stage:triage, ...)."
             echo "---"
             cat .cursor/skills/design-transform-tests/SKILL.md
           } > "$RUNNER_TEMP/prompt.md"
