@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": ".cursor/hooks/guard-file-edits.py",
+        "failClosed": true,
+        "timeout": 10
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/guard-shell.py",
+        "matcher": "git push|git reset|git branch|gh ",
+        "failClosed": true,
+        "timeout": 10
+      }
+    ]
+  }
+}

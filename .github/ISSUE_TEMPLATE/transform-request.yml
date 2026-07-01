@@ -1,0 +1,78 @@
+name: 🧩 Transform request
+description: Ask for a new image transform. No engineering knowledge needed — plain language is perfect.
+title: "[Transform]: "
+labels: ["type:transform-request", "stage:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for requesting a transform! A **transform** is a reusable step that changes an image
+        (for example: adjust brightness, resize, crop, or clean up a mask).
+
+        Just describe what you need in everyday words. If you don't know a technical detail, pick
+        **"Not sure (to confirm)"** — someone will follow up. Submitting this form starts the
+        process automatically.
+
+  - type: input
+    id: transform-name
+    attributes:
+      label: What should we call it?
+      description: A short, descriptive name. Don't worry about getting it perfect.
+      placeholder: e.g. "Gamma correction" or "Brightness adjust"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-it-does
+    attributes:
+      label: What should it do?
+      description: In plain language, what change should this make to the image or data?
+      placeholder: e.g. "Brighten dark scans so faint structures are easier to see."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why do we need it?
+      description: What problem does it solve, and who benefits?
+      placeholder: e.g. "Our low-dose CT scans are too dark for the model to segment reliably."
+    validations:
+      required: true
+
+  - type: input
+    id: reference
+    attributes:
+      label: Reference link (optional)
+      description: A paper, documentation page, or an existing implementation we can follow.
+      placeholder: https://...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: What kind of transform is it?
+      description: Where does it roughly belong? Not sure is completely fine — we'll confirm.
+      options:
+        - Intensity (brightness, contrast, noise)
+        - Spatial (resize, rotate, flip)
+        - Crop / Pad
+        - Post-processing (labels, masks, predictions)
+        - Loading / saving (I/O)
+        - Utility (general-purpose)
+        - Not sure (to confirm)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How urgent is it?
+      description: Your best guess — a maintainer confirms the final priority.
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
