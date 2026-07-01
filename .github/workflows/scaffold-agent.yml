@@ -2,14 +2,18 @@
 #
 # The scaffold agent is a Cursor AUTOMATION configured in the dashboard
 # (cursor.com/automations): its prompt, model, and tools live THERE — this
-# workflow is only the trigger wire. Cursor's UI automations can trigger on PR
-# label changes but not ISSUE label changes (verified in the dashboard), so
-# when /approve-tests swaps an issue to stage:scaffold (a real-user event — the
-# human approval IS the dispatch), this job POSTs to the automation's private
-# webhook and posts a receipt on the issue. All actual work happens in the
-# cloud agent: it clones the repo, follows
-# .cursor/commands/scaffold-transform.md, and ends with a PR into
-# stage:in-review.
+# workflow is only a trigger wire, and a FALLBACK one: the primary dispatch is
+# /approve-tests itself — the approver's machine POSTs the webhook directly
+# (instant, no CI runner queue). Use this workflow when that isn't possible
+# (approver without local webhook credentials): run it manually with the issue
+# number. It POSTs the same payload to the automation's private webhook and
+# posts a receipt on the issue. All actual work happens in the cloud agent: it
+# clones the repo, follows .cursor/commands/scaffold-transform.md, and ends
+# with a PR into stage:in-review.
+#
+# Deliberately NOT triggered on the stage:scaffold label — the label swap and
+# the direct poke happen together in /approve-tests, and a label trigger here
+# would double-dispatch the automation.
 #
 # Secrets required:
 #   CURSOR_AUTOMATION_WEBHOOK_URL   — the automation's webhook endpoint
@@ -18,12 +22,10 @@
 name: Scaffold agent (cloud relay)
 
 on:
-  issues:
-    types: [labeled]
   workflow_dispatch:
     inputs:
       issue:
-        description: Issue number to scaffold (operator override)
+        description: Issue number to scaffold
         required: true
         type: string
 
@@ -32,20 +34,15 @@ permissions:
   issues: write  # post the trigger receipt on the issue
 
 concurrency:
-  group: scaffold-${{ github.event.issue.number || github.event.inputs.issue }}
+  group: scaffold-${{ github.event.inputs.issue }}
 
 jobs:
   relay:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.label.name == 'stage:scaffold' &&
-       contains(github.event.issue.labels.*.name, 'type:transform-request') &&
-       github.event.issue.state == 'open')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
-      ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue }}
+      ISSUE_NUMBER: ${{ github.event.inputs.issue }}
     steps:
       - name: Trigger the Cursor automation webhook
         env:

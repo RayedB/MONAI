@@ -123,12 +123,12 @@ review. **Never merge** — that's a human gate (the shell-guard hook blocks it 
 
 ## Running in the cloud (this stage's native surface)
 Scaffold runs as a **Cursor automation** (dashboard-configured cloud agent) whose instructions
-point at this file — the approval *is* the dispatch: the `/approve-tests` label swap fires the
-[`scaffold-agent.yml`](../../.github/workflows/scaffold-agent.yml) relay, which POSTs to the
-automation's private webhook (Cursor automations don't trigger on issue-label changes — verified
-in the dashboard; the relay is the wire). Manual fallback: run the automation from
-cursor.com/automations, or launch a cloud agent from the IDE **Cloud** button with the same
-instructions. The VM installs the dev environment via
+point at this file — the approval *is* the dispatch, synchronously: `/approve-tests` swaps the
+label **and POSTs the automation's private webhook from the approver's machine** (instant; no CI
+queue; credentials live in the approver's local environment). Fallbacks, in order:
+`gh workflow run scaffold-agent.yml -f issue=<n>` (the
+[Actions relay](../../.github/workflows/scaffold-agent.yml), same webhook via repo secrets — may
+queue), or run the automation by hand from cursor.com/automations. The VM installs the dev environment via
 [.cursor/environment.json](../environment.json); the repo rules **and** the guard hooks bind the
 agent in the cloud too. **Label fallback:** the cloud agent's minted token cannot edit issue labels
 (no `issues: write` — same platform gap as triage). If the `stage:scaffold → stage:in-review` swap
