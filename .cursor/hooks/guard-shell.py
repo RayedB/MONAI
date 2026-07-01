@@ -9,7 +9,13 @@ Denied: crossing a gate (merge, push to dev/main) or destructive/governance ops 
 
 Runs only inside Cursor (and Cursor cloud agents) — it is inert in other tools.
 """
-import sys, json, re, shlex
+
+from __future__ import annotations
+
+import json
+import re
+import shlex
+import sys
 
 
 def emit(permission, user="", agent=""):
@@ -54,8 +60,7 @@ def main():
     cmd = str(data.get("command", ""))
     reason = deny_reason(cmd)
     if reason:
-        emit("deny", f"🔒 {reason}",
-             f"Blocked by shell guard: {reason} A human must run this. (command: {cmd!r})")
+        emit("deny", f"🔒 {reason}", f"Blocked by shell guard: {reason} A human must run this. (command: {cmd!r})")
     emit("allow")
 
 

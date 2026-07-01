@@ -14,6 +14,7 @@ Accepts BOTH legitimate formats:
 Output: writes `ok=true|false` and `missing=<comma list>` to $GITHUB_OUTPUT when
 set (CI), and always prints a JSON verdict to stdout (local use / logs).
 """
+
 from __future__ import annotations
 
 import json
@@ -53,9 +54,7 @@ def check(body: str) -> tuple[bool, list[str]]:
     found = sections(body)
     missing: list[str] = []
     for name, pattern in REQUIRED.items():
-        content = next(
-            (text for heading, text in found.items() if pattern.search(heading)), None
-        )
+        content = next((text for heading, text in found.items() if pattern.search(heading)), None)
         if content is None:
             missing.append(name)
             continue
