@@ -33,7 +33,7 @@ terminal `stage:done` are advanced by **humans only**.
 | `stage:triage` | 🤖 triage agent (auto on filing) — or 🧑 via `/triage-request` | **Guards, cheapest first:** template check (deterministic script) → scope guard (PyTorch / wrong area?) → duplicate guard (existing transform covers it?) → clarity check | `stage:test-design` *(clear)* — stays *(needs info)* — or **closed not planned** *(`invalid` / `out-of-scope` / `duplicate`)* |
 | `stage:test-design` | 🤖 test-design agent (QA-assisted) | `design-transform-tests` drafts the test plan + failing tests, grounded in the closest existing transform pair — **auto-fires in CI** on the label (see [Automation](#automation-every--stage-runs-on-its-matching-surface)) | `stage:test-review` &nbsp;*(🤖 → into review)* |
 | `stage:test-review` 🔒 **GATE** | 🧑 QA / maintainer | Human reviews the proposed tests. Nothing automated advances this. | `stage:scaffold` *(🧑 approves)* — or back to `stage:test-design` |
-| `stage:scaffold` | 🤖 **cloud scaffold automation** (dispatched by the approval itself) | The `/approve-tests` label swap fires the [`scaffold-agent.yml`](.github/workflows/scaffold-agent.yml) relay → webhook → the Cursor **automation** launches its cloud agent, which runs [`/scaffold-transform`](.cursor/commands/scaffold-transform.md) in its own VM: array + dictionary pair, wiring, approved tests, green verification; opens a PR | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
+| `stage:scaffold` | 🤖 **cloud scaffold automation** (dispatched by the approval itself) | `/approve-tests` swaps the label **and POSTs the automation's webhook directly** (instant — no CI queue) → the Cursor **automation** launches its cloud agent, which runs [`/scaffold-transform`](.cursor/commands/scaffold-transform.md) in its own VM: array + dictionary pair, wiring, approved tests, green verification; opens a PR. Fallback: [`scaffold-agent.yml`](.github/workflows/scaffold-agent.yml) (manual dispatch) | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
 | `stage:in-review` 🔒 **GATE** | 🧑 maintainer / reviewer | PR open; CI + Bugbot + Security Review run; human reviews. Nothing auto-merges. | `stage:done` *(🧑 merges)* — or back to `stage:scaffold` |
 | `stage:done` | 🧑 maintainer | PR merged, issue closed. Terminal. | — |
 
@@ -132,12 +132,16 @@ Cursor cloud automations can't yet trigger on a label change, and their minted t
 ### The scaffold stage: a cloud automation dispatched by the approval itself
 
 The scaffold agent is a **Cursor automation** configured in the dashboard — its prompt, model, and
-tools live in Cursor, not in CI. The human approval is the dispatch: `/approve-tests` swaps the
-issue to `stage:scaffold`, and the [`scaffold-agent.yml`](.github/workflows/scaffold-agent.yml)
-relay POSTs to the automation's private **webhook** (URL + API key held as repo secrets), then
-posts a launch receipt on the issue. The relay exists because Cursor automations trigger on *PR*
-label changes but not *issue* label changes (verified in the dashboard) — one platform gap, one
-15-line wire.
+tools live in Cursor, not in CI. The human approval is the dispatch, **synchronously**:
+`/approve-tests` swaps the issue to `stage:scaffold` and POSTs the automation's private **webhook**
+from the approver's own machine (credentials in the approver's local environment). This keeps the
+demo-critical hop off shared CI runners — no queue between "approved" and "building". Two fallbacks,
+in order: [`scaffold-agent.yml`](.github/workflows/scaffold-agent.yml) (manual `workflow_dispatch`,
+same webhook via Actions with the repo secrets — may queue), or running the automation by hand from
+the dashboard. A label-event trigger is deliberately **not** used: the poke and the label swap
+travel together in `/approve-tests`, and a label trigger would double-dispatch. (Cursor automations
+also can't trigger on *issue*-label changes — PR labels only, verified in the dashboard — which is
+why a webhook is the integration point at all.)
 
 The cloud agent clones the repo, installs the dev environment from
 [`.cursor/environment.json`](.cursor/environment.json), and works on its own branch — the repo's

@@ -29,15 +29,24 @@ for a transform request. See `LIFECYCLE.md` at the repo root: this is the `stage
 4. **Ask:** "Approve, or request changes?"
 
 ## On the human's decision
-**Approve** — only on an explicit yes. Record the approver (their name, or `git config user.name`):
+**Approve** — only on an explicit yes. Record the approver (their name, or `git config user.name`),
+then **dispatch the cloud scaffold automation directly** — the approver's machine pokes the
+automation's webhook, so the hand-off is instant and never waits on a CI runner queue:
 ```
 gh issue edit <n> --remove-label "stage:test-review" --add-label "stage:scaffold"
 gh issue comment <n> --body "✅ Test design approved by <approver> (<date>). Advancing to scaffold."
+curl -sS -X POST "$CURSOR_AUTOMATION_WEBHOOK_URL" \
+  -H "Authorization: Bearer $CURSOR_AUTOMATION_WEBHOOK_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data "{\"event\":\"stage:scaffold\",\"issue_number\":\"<n>\",\"repository\":\"RayedB/MONAI\",\"issue_url\":\"https://github.com/RayedB/MONAI/issues/<n>\"}"
 ```
-Then say plainly: the tests are approved, and **the label swap you just made is the dispatch** —
-it fires the cloud scaffold automation (via `.github/workflows/scaffold-agent.yml`), which builds
-the transform from the approved test design and opens a PR. Watch the issue for the launch
-receipt; the resulting code goes through its **own** human review before merge.
+The two `CURSOR_AUTOMATION_WEBHOOK_*` values come from the approver's local environment (shell
+profile) — never commit them. If they aren't set, fall back to the CI relay:
+`gh workflow run scaffold-agent.yml -f issue=<n>` (same webhook, via Actions — may queue).
+
+Then say plainly: the tests are approved and **the approval itself dispatched the builder** — the
+cloud agent builds from the approved test design and opens a PR. The resulting code goes through
+its **own** human review before merge.
 
 **Request changes:**
 ```
