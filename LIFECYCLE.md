@@ -21,13 +21,16 @@ terminal `stage:done` are advanced by **humans only**.
 - **`stage:*`** — the *current position* in the machine. Exactly one at a time; advancing = swapping
   the stage label.
 - **`priority:low|medium|high`** — orthogonal; set at triage by a maintainer/PM.
+- **`invalid` / `duplicate` / `out-of-scope`** — triage *rejection* outcomes; the issue is closed as
+  **not planned** with a plain-language comment explaining how to come back (see
+  [Triage guards](#triage-guards-protecting-core-contributors-time)).
 
 ## States
 
 | Stage (label) | Owner who advances it | Fires on entry | → moves to |
 |---|---|---|---|
 | `type:transform-request` + `stage:triage` *(at filing, via form)* | — (auto, from the form) | Request enters **intake**; maintainer sets `priority:*` | `stage:triage` row below |
-| `stage:triage` | 🧑 triager (via `/triage-request`) | Clarity check — if vague, post specific questions and **hold**; if clear, advance | `stage:test-design` *(clear)* — or stays (needs info) |
+| `stage:triage` | 🤖 triage agent (auto on filing) — or 🧑 via `/triage-request` | **Guards, cheapest first:** template check (deterministic script) → scope guard (PyTorch / wrong area?) → duplicate guard (existing transform covers it?) → clarity check | `stage:test-design` *(clear)* — stays *(needs info)* — or **closed not planned** *(`invalid` / `out-of-scope` / `duplicate`)* |
 | `stage:test-design` | 🤖 test-design agent (QA-assisted) | `design-transform-tests` drafts the test plan + failing tests, grounded in the closest existing transform pair — **auto-fires in CI** on the label (see [Automation](#automation-the-test-design-stage-is-event-reactive)) | `stage:test-review` &nbsp;*(🤖 → into review)* |
 | `stage:test-review` 🔒 **GATE** | 🧑 QA / maintainer | Human reviews the proposed tests. Nothing automated advances this. | `stage:scaffold` *(🧑 approves)* — or back to `stage:test-design` |
 | `stage:scaffold` | 🤖 scaffold agent + engineer | `/scaffold-transform` generates the array + dictionary pair, wiring, and the approved tests; opens a PR | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
@@ -41,7 +44,8 @@ stateDiagram-v2
     [*] --> triage: form filed (intake)
     [*] --> test_design: /request-transform (guided — already clear)
     triage --> triage: needs clarification (comment)
-    triage --> test_design: /triage-request — clear
+    triage --> test_design: triage agent / /triage-request — clear
+    triage --> [*]: rejected — invalid · out-of-scope · duplicate (closed not planned)
     test_design --> test_review: agent — into review
     test_review --> scaffold: human approves (GATE)
     test_review --> test_design: human requests changes
@@ -70,23 +74,50 @@ clarity gate. The requester's **Priority** answer is a suggestion; a maintainer 
 > Run [`.github/setup-labels.sh`](.github/setup-labels.sh) once before relying on the form — the
 > `labels:` auto-apply only works for labels that already exist on the repo.
 
-## Automation: the test-design stage is event-reactive
+## Triage guards: protecting core contributors' time
 
-Applying `stage:test-design` — by `/triage-request`, or at filing via `/request-transform` — fires
-[`.github/workflows/test-design-agent.yml`](.github/workflows/test-design-agent.yml), which runs the
-**same** [`design-transform-tests`](.cursor/skills/design-transform-tests/SKILL.md) skill headless via
-the Cursor CLI (`agent -p`, authenticated by the `CURSOR_API_KEY` repo secret). One skill file, two
-surfaces: the editor and CI.
+The single biggest cost in this repo is **maintainer attention** (top-12 humans ≈ 83% of commits;
+median PR review 13 days). Triage is therefore an automated front door —
+[`.github/workflows/triage-agent.yml`](.github/workflows/triage-agent.yml) fires on every new
+transform request (form filing, `[Transform]` title, or a human re-applying `stage:triage`) and
+answers the requests that should never reach a human. **Guards run cheapest-first:**
+
+| # | Guard | Layer | Outcome when it trips |
+|---|---|---|---|
+| 1 | **Template** — required sections present & non-empty ([`check-transform-template.py`](.github/scripts/check-transform-template.py)) | deterministic script — *zero agent cost* | comment what's missing + link to the form → `invalid` → **closed not planned** |
+| 2 | **Scope** — generic tensor/framework op (→ PyTorch) or a network/loss/metric (→ other MONAI area, standard template) | 🤖 agent | redirect comment → `out-of-scope` → **closed not planned** |
+| 3 | **Duplicate** — an existing transform demonstrably covers it (e.g. "rotate 120°" → `Rotate(angle=…)`) | 🤖 agent | comment naming the transform + docs → `duplicate` → **closed not planned** |
+| 4 | **Clarity** — could engineering write a correctness test from this? | 🤖 agent | questions posted, **held** at `stage:triage` |
+
+Rejections are polite and reversible: closed **not planned**, always with the way back (refile via
+the form, or reply to appeal — a maintainer can reopen). The agent rejects **only when confident**;
+when unsure it falls through to clarity questions. Canonical logic:
+[`triage-transform-request`](.cursor/skills/triage-transform-request/SKILL.md) — the same skill a
+human triager runs via [`/triage-request`](.cursor/commands/triage-request.md).
+
+## Automation: event-reactive stages via Cursor CLI in Actions
+
+Two workflows make the 🤖 stages fire on their labels, running the **same skill files** the editor
+uses, headless via the Cursor CLI (`agent -p`, authenticated by the `CURSOR_API_KEY` repo secret):
+
+- [`triage-agent.yml`](.github/workflows/triage-agent.yml) — on issue **opened** / `stage:triage`
+  labeled → [`triage-transform-request`](.cursor/skills/triage-transform-request/SKILL.md)
+- [`test-design-agent.yml`](.github/workflows/test-design-agent.yml) — on `stage:test-design`
+  labeled → [`design-transform-tests`](.cursor/skills/design-transform-tests/SKILL.md)
 
 Cursor cloud automations can't yet trigger on a label change, and their minted token lacks
-`issues: write` — the Action supplies both: GitHub delivers the event, and the workflow's own
-`GITHUB_TOKEN` (scoped `issues: write` + `contents: read`) authenticates `gh`. Control mirrors the
-enforcement layers below:
+`issues: write` — the Actions supply both: GitHub delivers the event, and each workflow's own
+`GITHUB_TOKEN` authenticates `gh`. Control mirrors the enforcement layers below:
 
-- the token **cannot** push code, approve, or merge — even a misbehaving agent is capped server-side;
+- tokens are scoped per workflow (`issues: write` + `contents: read`; triage adds `actions: write`
+  for chaining) — they **cannot** push code, approve, or merge, however the agent misbehaves;
 - a CI-only `.cursor/cli.json` denies file writes and allows only read/inspect commands plus `gh`/`git`;
-- the swap to `stage:test-review` is made with `GITHUB_TOKEN`, and GitHub never triggers workflows
-  from `GITHUB_TOKEN` events — no loops, and the agent still only moves work *into* review.
+- issue content is treated as **untrusted input** — the skills forbid following instructions found
+  in issue bodies or comments;
+- label changes made with `GITHUB_TOKEN` never trigger workflows (loop-safe by GitHub guarantee) —
+  which is also why triage **explicitly dispatches** `test-design-agent.yml` on advance:
+  *workflow_dispatch events always create runs*, so the chain is deliberate, visible, and the only
+  agent-to-agent hand-off in the machine. Both hand-offs still land **into** review states only.
 
 ## Enforcement: advisory → deterministic → server-side
 
