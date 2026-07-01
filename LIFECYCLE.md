@@ -31,9 +31,9 @@ terminal `stage:done` are advanced by **humans only**.
 |---|---|---|---|
 | `type:transform-request` + `stage:triage` *(at filing, via form)* | — (auto, from the form) | Request enters **intake**; maintainer sets `priority:*` | `stage:triage` row below |
 | `stage:triage` | 🤖 triage agent (auto on filing) — or 🧑 via `/triage-request` | **Guards, cheapest first:** template check (deterministic script) → scope guard (PyTorch / wrong area?) → duplicate guard (existing transform covers it?) → clarity check | `stage:test-design` *(clear)* — stays *(needs info)* — or **closed not planned** *(`invalid` / `out-of-scope` / `duplicate`)* |
-| `stage:test-design` | 🤖 test-design agent (QA-assisted) | `design-transform-tests` drafts the test plan + failing tests, grounded in the closest existing transform pair — **auto-fires in CI** on the label (see [Automation](#automation-the-test-design-stage-is-event-reactive)) | `stage:test-review` &nbsp;*(🤖 → into review)* |
+| `stage:test-design` | 🤖 test-design agent (QA-assisted) | `design-transform-tests` drafts the test plan + failing tests, grounded in the closest existing transform pair — **auto-fires in CI** on the label (see [Automation](#automation-every--stage-runs-on-its-matching-surface)) | `stage:test-review` &nbsp;*(🤖 → into review)* |
 | `stage:test-review` 🔒 **GATE** | 🧑 QA / maintainer | Human reviews the proposed tests. Nothing automated advances this. | `stage:scaffold` *(🧑 approves)* — or back to `stage:test-design` |
-| `stage:scaffold` | 🤖 scaffold agent + engineer | `/scaffold-transform` generates the array + dictionary pair, wiring, and the approved tests; opens a PR | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
+| `stage:scaffold` | 🤖 **cloud scaffold agent** (human-summoned) | The approver comments `@cursor …` on the issue (or IDE **Cloud** button) → a Cursor cloud agent runs [`/scaffold-transform`](.cursor/commands/scaffold-transform.md) in its own VM: array + dictionary pair, wiring, approved tests, green verification; opens a PR | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
 | `stage:in-review` 🔒 **GATE** | 🧑 maintainer / reviewer | PR open; CI + Bugbot + Security Review run; human reviews. Nothing auto-merges. | `stage:done` *(🧑 merges)* — or back to `stage:scaffold` |
 | `stage:done` | 🧑 maintainer | PR merged, issue closed. Terminal. | — |
 
@@ -95,9 +95,19 @@ when unsure it falls through to clarity questions. Canonical logic:
 [`triage-transform-request`](.cursor/skills/triage-transform-request/SKILL.md) — the same skill a
 human triager runs via [`/triage-request`](.cursor/commands/triage-request.md).
 
-## Automation: event-reactive stages via Cursor CLI in Actions
+## Automation: every 🤖 stage runs on its matching surface
 
-Two workflows make the 🤖 stages fire on their labels, running the **same skill files** the editor
+Each automated stage runs on the surface whose **permissions and runtime match the work** —
+issue mutations need a token with `issues: write` (GitHub Actions); building code needs a dev VM,
+a branch, and a PR (a Cursor cloud agent):
+
+| 🤖 Stage | Surface | Why this surface |
+|---|---|---|
+| triage | script + Cursor CLI in Actions | needs `issues: write` (comment/label/close) — the Action's `GITHUB_TOKEN` has it |
+| test-design | Cursor CLI in Actions | same: posts the plan, swaps labels |
+| scaffold | **Cursor cloud agent** | needs to write code, run the test suite, push a branch, open a PR — the cloud agent's native shape, and PR creation is a write its minted token fully supports |
+
+Two workflows make the label-driven stages fire, running the **same skill files** the editor
 uses, headless via the Cursor CLI (`agent -p`, authenticated by the `CURSOR_API_KEY` repo secret):
 
 - [`triage-agent.yml`](.github/workflows/triage-agent.yml) — on issue **opened** / `stage:triage`
@@ -118,6 +128,20 @@ Cursor cloud automations can't yet trigger on a label change, and their minted t
   which is also why triage **explicitly dispatches** `test-design-agent.yml` on advance:
   *workflow_dispatch events always create runs*, so the chain is deliberate, visible, and the only
   agent-to-agent hand-off in the machine. Both hand-offs still land **into** review states only.
+
+### The scaffold stage: a human-summoned cloud agent
+
+Scaffold is deliberately **not** event-fired — the summon *is* the human gate acting. After
+approving the test design, the approver comments on the issue
+(`@cursor Follow .cursor/commands/scaffold-transform.md for this issue.`) or launches from the IDE
+**Cloud** button. The cloud agent clones the repo, installs the dev environment from
+[`.cursor/environment.json`](.cursor/environment.json), and works on its own branch — the repo's
+rules **and command hooks bind it in the cloud** (guard-shell still denies merges from inside the
+VM). It finishes by opening the PR — moving the work *into* `stage:in-review`, never past it.
+Known platform gap, stated honestly: the cloud agent's minted token cannot edit issue labels, so if
+the `stage:scaffold → stage:in-review` label swap fails, the agent notes it in the PR body and the
+human reviewer applies the label at the gate they own. (`FlipBrightness` — PR #4,
+`Co-authored-by: Cursor` — was scaffolded exactly this way.)
 
 ## Enforcement: advisory → deterministic → server-side
 

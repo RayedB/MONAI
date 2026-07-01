@@ -120,3 +120,12 @@ If `--mypy` or a test fails, fix and re-run. (Requires the MONAI dev env — tor
 ## Next (lifecycle)
 With everything green, open a PR (`gh pr create`) to move the issue to `stage:in-review` for human
 review. **Never merge** — that's a human gate (the shell-guard hook blocks it anyway).
+
+## Running in the cloud (this stage's native surface)
+Scaffold runs on a **Cursor cloud agent**: after approving the tests, the human summons it by
+commenting on the issue — `@cursor Follow .cursor/commands/scaffold-transform.md for this issue.`
+(or from the IDE **Cloud** button / cursor.com/agents). The VM installs the dev environment via
+[.cursor/environment.json](../environment.json); the repo rules **and** the guard hooks bind the
+agent in the cloud too. **Label fallback:** the cloud agent's minted token cannot edit issue labels
+(no `issues: write` — same platform gap as triage). If the `stage:scaffold → stage:in-review` swap
+fails, say so in the PR body; the human reviewer applies the label at the gate they own.
