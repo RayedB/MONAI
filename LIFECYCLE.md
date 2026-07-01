@@ -33,7 +33,7 @@ terminal `stage:done` are advanced by **humans only**.
 | `stage:triage` | 🤖 triage agent (auto on filing) — or 🧑 via `/triage-request` | **Guards, cheapest first:** template check (deterministic script) → scope guard (PyTorch / wrong area?) → duplicate guard (existing transform covers it?) → clarity check | `stage:test-design` *(clear)* — stays *(needs info)* — or **closed not planned** *(`invalid` / `out-of-scope` / `duplicate`)* |
 | `stage:test-design` | 🤖 test-design agent (QA-assisted) | `design-transform-tests` drafts the test plan + failing tests, grounded in the closest existing transform pair — **auto-fires in CI** on the label (see [Automation](#automation-every--stage-runs-on-its-matching-surface)) | `stage:test-review` &nbsp;*(🤖 → into review)* |
 | `stage:test-review` 🔒 **GATE** | 🧑 QA / maintainer | Human reviews the proposed tests. Nothing automated advances this. | `stage:scaffold` *(🧑 approves)* — or back to `stage:test-design` |
-| `stage:scaffold` | 🤖 **cloud scaffold agent** (human-summoned) | The approver comments `@cursor …` on the issue (or IDE **Cloud** button) → a Cursor cloud agent runs [`/scaffold-transform`](.cursor/commands/scaffold-transform.md) in its own VM: array + dictionary pair, wiring, approved tests, green verification; opens a PR | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
+| `stage:scaffold` | 🤖 **cloud scaffold automation** (dispatched by the approval itself) | The `/approve-tests` label swap fires the [`scaffold-agent.yml`](.github/workflows/scaffold-agent.yml) relay → webhook → the Cursor **automation** launches its cloud agent, which runs [`/scaffold-transform`](.cursor/commands/scaffold-transform.md) in its own VM: array + dictionary pair, wiring, approved tests, green verification; opens a PR | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
 | `stage:in-review` 🔒 **GATE** | 🧑 maintainer / reviewer | PR open; CI + Bugbot + Security Review run; human reviews. Nothing auto-merges. | `stage:done` *(🧑 merges)* — or back to `stage:scaffold` |
 | `stage:done` | 🧑 maintainer | PR merged, issue closed. Terminal. | — |
 
@@ -105,7 +105,7 @@ a branch, and a PR (a Cursor cloud agent):
 |---|---|---|
 | triage | script + Cursor CLI in Actions | needs `issues: write` (comment/label/close) — the Action's `GITHUB_TOKEN` has it |
 | test-design | Cursor CLI in Actions | same: posts the plan, swaps labels |
-| scaffold | **Cursor cloud agent** | needs to write code, run the test suite, push a branch, open a PR — the cloud agent's native shape, and PR creation is a write its minted token fully supports |
+| scaffold | **Cursor cloud automation** (dashboard-configured agent) | needs to write code, run the test suite, push a branch, open a PR — the cloud agent's native shape, and PR creation is a write its minted token fully supports |
 
 Two workflows make the label-driven stages fire, running the **same skill files** the editor
 uses, headless via the Cursor CLI (`agent -p`, authenticated by the `CURSOR_API_KEY` repo secret):
@@ -129,12 +129,17 @@ Cursor cloud automations can't yet trigger on a label change, and their minted t
   *workflow_dispatch events always create runs*, so the chain is deliberate, visible, and the only
   agent-to-agent hand-off in the machine. Both hand-offs still land **into** review states only.
 
-### The scaffold stage: a human-summoned cloud agent
+### The scaffold stage: a cloud automation dispatched by the approval itself
 
-Scaffold is deliberately **not** event-fired — the summon *is* the human gate acting. After
-approving the test design, the approver comments on the issue
-(`@cursor Follow .cursor/commands/scaffold-transform.md for this issue.`) or launches from the IDE
-**Cloud** button. The cloud agent clones the repo, installs the dev environment from
+The scaffold agent is a **Cursor automation** configured in the dashboard — its prompt, model, and
+tools live in Cursor, not in CI. The human approval is the dispatch: `/approve-tests` swaps the
+issue to `stage:scaffold`, and the [`scaffold-agent.yml`](.github/workflows/scaffold-agent.yml)
+relay POSTs to the automation's private **webhook** (URL + API key held as repo secrets), then
+posts a launch receipt on the issue. The relay exists because Cursor automations trigger on *PR*
+label changes but not *issue* label changes (verified in the dashboard) — one platform gap, one
+15-line wire.
+
+The cloud agent clones the repo, installs the dev environment from
 [`.cursor/environment.json`](.cursor/environment.json), and works on its own branch — the repo's
 rules **and command hooks bind it in the cloud** (guard-shell still denies merges from inside the
 VM). It finishes by opening the PR — moving the work *into* `stage:in-review`, never past it.
