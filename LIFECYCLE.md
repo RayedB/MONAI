@@ -28,7 +28,7 @@ terminal `stage:done` are advanced by **humans only**.
 |---|---|---|---|
 | `type:transform-request` + `stage:triage` *(at filing, via form)* | — (auto, from the form) | Request enters **intake**; maintainer sets `priority:*` | `stage:triage` row below |
 | `stage:triage` | 🧑 triager (via `/triage-request`) | Clarity check — if vague, post specific questions and **hold**; if clear, advance | `stage:test-design` *(clear)* — or stays (needs info) |
-| `stage:test-design` | 🤖 test-design agent (QA-assisted) | `design-transform-tests` drafts the test plan + failing tests, grounded in the closest existing transform pair | `stage:test-review` &nbsp;*(🤖 → into review)* |
+| `stage:test-design` | 🤖 test-design agent (QA-assisted) | `design-transform-tests` drafts the test plan + failing tests, grounded in the closest existing transform pair — **auto-fires in CI** on the label (see [Automation](#automation-the-test-design-stage-is-event-reactive)) | `stage:test-review` &nbsp;*(🤖 → into review)* |
 | `stage:test-review` 🔒 **GATE** | 🧑 QA / maintainer | Human reviews the proposed tests. Nothing automated advances this. | `stage:scaffold` *(🧑 approves)* — or back to `stage:test-design` |
 | `stage:scaffold` | 🤖 scaffold agent + engineer | `/scaffold-transform` generates the array + dictionary pair, wiring, and the approved tests; opens a PR | `stage:in-review` &nbsp;*(🤖 opens PR → into review)* |
 | `stage:in-review` 🔒 **GATE** | 🧑 maintainer / reviewer | PR open; CI + Bugbot + Security Review run; human reviews. Nothing auto-merges. | `stage:done` *(🧑 merges)* — or back to `stage:scaffold` |
@@ -69,6 +69,24 @@ clarity gate. The requester's **Priority** answer is a suggestion; a maintainer 
 
 > Run [`.github/setup-labels.sh`](.github/setup-labels.sh) once before relying on the form — the
 > `labels:` auto-apply only works for labels that already exist on the repo.
+
+## Automation: the test-design stage is event-reactive
+
+Applying `stage:test-design` — by `/triage-request`, or at filing via `/request-transform` — fires
+[`.github/workflows/test-design-agent.yml`](.github/workflows/test-design-agent.yml), which runs the
+**same** [`design-transform-tests`](.cursor/skills/design-transform-tests/SKILL.md) skill headless via
+the Cursor CLI (`agent -p`, authenticated by the `CURSOR_API_KEY` repo secret). One skill file, two
+surfaces: the editor and CI.
+
+Cursor cloud automations can't yet trigger on a label change, and their minted token lacks
+`issues: write` — the Action supplies both: GitHub delivers the event, and the workflow's own
+`GITHUB_TOKEN` (scoped `issues: write` + `contents: read`) authenticates `gh`. Control mirrors the
+enforcement layers below:
+
+- the token **cannot** push code, approve, or merge — even a misbehaving agent is capped server-side;
+- a CI-only `.cursor/cli.json` denies file writes and allows only read/inspect commands plus `gh`/`git`;
+- the swap to `stage:test-review` is made with `GITHUB_TOKEN`, and GitHub never triggers workflows
+  from `GITHUB_TOKEN` events — no loops, and the agent still only moves work *into* review.
 
 ## Enforcement: advisory → deterministic → server-side
 

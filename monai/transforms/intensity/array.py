@@ -78,6 +78,7 @@ __all__ = [
     "HistogramNormalize",
     "IntensityRemap",
     "RandIntensityRemap",
+    "FlipBrightness",
     "ForegroundMask",
     "ComputeHoVerMaps",
     "UltrasoundConfidenceMapTransform",
@@ -2673,6 +2674,29 @@ class RandIntensityRemap(RandomizableTransform):
                 img = IntensityRemap(self.kernel_size, self.R.choice([-self.slope, self.slope]))(img)
 
         return img
+
+
+class FlipBrightness(Transform):
+    """
+    Flip pixel intensities so dark areas become light and light areas become dark.
+
+    Applies linear inversion ``out = img_min + img_max - in`` using the minimum and maximum
+    intensity values computed over the entire image. For a constant image where all pixels
+    share the same value, the output is unchanged.
+    """
+
+    backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
+
+    def __call__(self, img: NdarrayOrTensor) -> NdarrayOrTensor:
+        """
+        Apply the transform to `img`.
+        """
+        img = convert_to_tensor(img, track_meta=get_track_meta())
+        img_t = convert_to_tensor(img, track_meta=False)
+        img_min = img_t.min()
+        img_max = img_t.max()
+        ret = img_min + img_max - img_t
+        return convert_to_dst_type(ret, dst=img)[0]
 
 
 class ForegroundMask(Transform):
