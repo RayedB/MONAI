@@ -17,6 +17,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
+from numbers import Integral
 from typing import Any, cast
 from warnings import warn
 
@@ -53,6 +54,7 @@ __all__ = [
     "ScaleIntensityFixedMean",
     "RandScaleIntensityFixedMean",
     "NormalizeIntensity",
+    "PosterizeIntensity",
     "ThresholdIntensity",
     "ScaleIntensityRange",
     "ClipIntensityPercentiles",
@@ -979,6 +981,42 @@ class ThresholdIntensity(Transform):
         res = where(mask, img, self.cval)
         res, *_ = convert_data_type(res, dtype=img.dtype)
         return res
+
+
+class PosterizeIntensity(Transform):
+    """
+    Reduce the number of distinct intensity values in the whole image to `levels` evenly spaced values.
+
+    Args:
+        levels: number of evenly spaced intensity levels. Must be a positive integer.
+    """
+
+    backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
+
+    def __init__(self, levels: int) -> None:
+        if isinstance(levels, bool) or not isinstance(levels, Integral) or levels < 1:
+            raise ValueError(f"levels must be a positive integer, got {levels}.")
+        self.levels = int(levels)
+
+    def __call__(self, img: NdarrayOrTensor) -> NdarrayOrTensor:
+        """
+        Apply the transform to `img`.
+        """
+        img = convert_to_tensor(img, track_meta=get_track_meta())
+        img_t = convert_to_tensor(img, track_meta=False, dtype=torch.float32)
+        minv = img_t.min()
+        maxv = img_t.max()
+        if maxv == minv:
+            return img
+        if self.levels == 1:
+            ret = convert_to_dst_type(torch.zeros_like(img_t) + minv, dst=img, dtype=img.dtype)[0]
+            return ret
+
+        scale = (img_t - minv) / (maxv - minv) * (self.levels - 1)
+        quantized = torch.floor(scale + 0.5)
+        out = quantized * (maxv - minv) / (self.levels - 1) + minv
+        ret = convert_to_dst_type(out, dst=img, dtype=img.dtype)[0]
+        return ret
 
 
 class ScaleIntensityRange(Transform):
