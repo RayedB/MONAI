@@ -348,6 +348,12 @@ Intensity
     :members:
     :special-members: __call__
 
+`PosterizeIntensity`
+""""""""""""""""""""
+.. autoclass:: PosterizeIntensity
+    :members:
+    :special-members: __call__
+
 `ThresholdIntensity`
 """"""""""""""""""""
 .. image:: https://raw.githubusercontent.com/Project-MONAI/DocImages/main/transforms/ThresholdIntensity.png
@@ -1468,6 +1474,12 @@ Intensity (Dict)
 .. image:: https://raw.githubusercontent.com/Project-MONAI/DocImages/main/transforms/ScaleIntensityd.png
     :alt: example of ScaleIntensityd
 .. autoclass:: ScaleIntensityd
+    :members:
+    :special-members: __call__
+
+`PosterizeIntensityd`
+"""""""""""""""""""""
+.. autoclass:: PosterizeIntensityd
     :members:
     :special-members: __call__
 

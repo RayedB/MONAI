@@ -38,6 +38,7 @@ from monai.transforms.intensity.array import (
     MaskIntensity,
     MedianSmooth,
     NormalizeIntensity,
+    PosterizeIntensity,
     RandAdjustContrast,
     RandBiasField,
     RandCoarseDropout,
@@ -77,6 +78,7 @@ __all__ = [
     "RandStdShiftIntensityd",
     "RandBiasFieldd",
     "NormalizeIntensityd",
+    "PosterizeIntensityd",
     "ThresholdIntensityd",
     "ScaleIntensityRanged",
     "ClipIntensityPercentilesd",
@@ -122,6 +124,8 @@ __all__ = [
     "RandBiasFieldDict",
     "NormalizeIntensityD",
     "NormalizeIntensityDict",
+    "PosterizeIntensityD",
+    "PosterizeIntensityDict",
     "ThresholdIntensityD",
     "ThresholdIntensityDict",
     "ScaleIntensityRangeD",
@@ -865,6 +869,30 @@ class ThresholdIntensityd(MapTransform):
         d = dict(data)
         for key in self.key_iterator(d):
             d[key] = self.filter(d[key])
+        return d
+
+
+class PosterizeIntensityd(MapTransform):
+    """
+    Dictionary-based wrapper of :py:class:`monai.transforms.PosterizeIntensity`.
+
+    Args:
+        keys: keys of the corresponding items to be transformed.
+            See also: monai.transforms.MapTransform
+        levels: number of evenly spaced intensity levels. Must be a positive integer.
+        allow_missing_keys: don't raise exception if key is missing.
+    """
+
+    backend = PosterizeIntensity.backend
+
+    def __init__(self, keys: KeysCollection, levels: int, allow_missing_keys: bool = False) -> None:
+        super().__init__(keys, allow_missing_keys)
+        self.posterizer = PosterizeIntensity(levels)
+
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
+        d = dict(data)
+        for key in self.key_iterator(d):
+            d[key] = self.posterizer(d[key])
         return d
 
 
@@ -2000,6 +2028,7 @@ ScaleIntensityD = ScaleIntensityDict = ScaleIntensityd
 RandScaleIntensityD = RandScaleIntensityDict = RandScaleIntensityd
 RandScaleIntensityFixedMeanD = RandScaleIntensityFixedMeanDict = RandScaleIntensityFixedMeand
 NormalizeIntensityD = NormalizeIntensityDict = NormalizeIntensityd
+PosterizeIntensityD = PosterizeIntensityDict = PosterizeIntensityd
 ThresholdIntensityD = ThresholdIntensityDict = ThresholdIntensityd
 ScaleIntensityRangeD = ScaleIntensityRangeDict = ScaleIntensityRanged
 ClipIntensityPercentilesD = ClipIntensityPercentilesDict = ClipIntensityPercentilesd

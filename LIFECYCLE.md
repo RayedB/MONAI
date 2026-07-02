@@ -41,8 +41,7 @@ terminal `stage:done` are advanced by **humans only**.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> triage: form filed (intake)
-    [*] --> test_design: /request-transform (guided — already clear)
+    [*] --> triage: filed — form or /request-transform (intake)
     triage --> triage: needs clarification (comment)
     triage --> test_design: triage agent / /triage-request — clear
     triage --> [*]: rejected — invalid · out-of-scope · duplicate (closed not planned)
@@ -67,9 +66,12 @@ request is clear enough to design a test, it advances to `stage:test-design`; if
 plain-language clarification questions and holds it in triage until the requester replies.
 
 The guided [`/request-transform`](.cursor/commands/request-transform.md) command interviews to
-completeness, so requests filed that way enter directly at `stage:test-design` — the interview *is* the
-clarity gate. The requester's **Priority** answer is a suggestion; a maintainer applies the matching
-`priority:*` label (GitHub forms can't map a dropdown choice to a label automatically).
+completeness, then enters at `stage:triage` like every other path. The interview is a strong *clarity*
+gate, but clarity is only one of four guards — **scope** and **duplicate** need the library, not the
+requester (a well-run interview once filed a perfect duplicate: #16). Same door for everyone; the
+guards run on every entry path. The requester's **Priority** answer is a suggestion; a maintainer
+applies the matching `priority:*` label (GitHub forms can't map a dropdown choice to a label
+automatically).
 
 > Run [`.github/setup-labels.sh`](.github/setup-labels.sh) once before relying on the form — the
 > `labels:` auto-apply only works for labels that already exist on the repo.
