@@ -52,17 +52,21 @@ Run this yourself (the requester never runs commands); lower-case the priority f
 gh issue create \
   --title "<title>" \
   --body "<body>" \
-  --label "type:transform-request,stage:test-design,priority:<low|medium|high>"
+  --label "type:transform-request,stage:triage,priority:<low|medium|high>"
 ```
-This enters the pipeline at `stage:test-design` — the same labels as the intake form
-(`.github/ISSUE_TEMPLATE/transform-request.yml`).
+This enters the pipeline at `stage:triage` — the same labels as the intake form
+(`.github/ISSUE_TEMPLATE/transform-request.yml`). The interview guarantees a *well-formed* request,
+but scope and duplicate checks are triage's job: they need the library, not the requester. Same
+door for every entry path.
 
 > Requires `gh` authenticated with **push access** to the repo. In this environment that's the
 > `RayedB` account — if a write fails with `HTTP 404`, run `gh auth switch --user RayedB`, create the
 > issue, then switch back.
 
 ## Then explain what happens next (plain language)
-Tell them simply: engineering/QA will design tests for the behavior you described; **a human reviews
-those tests** (a required checkpoint); then engineers build it and **another human reviews the code**
-before anything is merged. Share the issue link. Remind them you only captured their request —
-nothing was designed or built, and no math or implementation was decided here.
+Tell them simply: the request is first checked against the library (it may already exist, or belong
+in another project — they'd get a comment explaining either way); then engineering/QA design tests
+for the behavior you described; **a human reviews those tests** (a required checkpoint); then
+engineers build it and **another human reviews the code** before anything is merged. Share the issue
+link. Remind them you only captured their request — nothing was designed or built, and no math or
+implementation was decided here.
