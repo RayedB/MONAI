@@ -535,6 +535,13 @@ Intensity
     :special-members: __call__
 
 
+`LogCompressIntensity`
+""""""""""""""""""""""""
+.. autoclass:: LogCompressIntensity
+    :members:
+    :special-members: __call__
+
+
 `FlipBrightness`
 """"""""""""""""
 .. autoclass:: FlipBrightness
@@ -1678,6 +1685,13 @@ Intensity (Dict)
 .. autoclass:: HistogramNormalized
     :members:
     :special-members: __call__
+
+`LogCompressIntensityd`
+""""""""""""""""""""""""
+.. autoclass:: LogCompressIntensityd
+    :members:
+    :special-members: __call__
+
 
 `FlipBrightnessd`
 """""""""""""""""

@@ -35,6 +35,7 @@ from monai.transforms.intensity.array import (
     GibbsNoise,
     HistogramNormalize,
     KSpaceSpikeNoise,
+    LogCompressIntensity,
     MaskIntensity,
     MedianSmooth,
     NormalizeIntensity,
@@ -101,6 +102,7 @@ __all__ = [
     "RandCoarseShuffled",
     "HistogramNormalized",
     "FlipBrightnessd",
+    "LogCompressIntensityd",
     "ForegroundMaskd",
     "ComputeHoVerMapsd",
     "RandGaussianNoiseD",
@@ -172,6 +174,8 @@ __all__ = [
     "RandKSpaceSpikeNoiseDict",
     "FlipBrightnessD",
     "FlipBrightnessDict",
+    "LogCompressIntensityD",
+    "LogCompressIntensityDict",
     "ForegroundMaskD",
     "ForegroundMaskDict",
     "ComputeHoVerMapsD",
@@ -1916,6 +1920,28 @@ class HistogramNormalized(MapTransform):
         return d
 
 
+class LogCompressIntensityd(MapTransform):
+    """
+    Dictionary-based wrapper of :py:class:`monai.transforms.LogCompressIntensity`.
+
+    Args:
+        keys: keys of the corresponding items to be transformed.
+        allow_missing_keys: don't raise exception if key is missing.
+    """
+
+    backend = LogCompressIntensity.backend
+
+    def __init__(self, keys: KeysCollection, allow_missing_keys: bool = False) -> None:
+        super().__init__(keys, allow_missing_keys)
+        self.log_compress = LogCompressIntensity()
+
+    def __call__(self, data: Mapping[Hashable, NdarrayOrTensor]) -> dict[Hashable, NdarrayOrTensor]:
+        d = dict(data)
+        for key in self.key_iterator(d):
+            d[key] = self.log_compress(d[key])
+        return d
+
+
 class FlipBrightnessd(MapTransform):
     """
     Dictionary-based wrapper of :py:class:`monai.transforms.FlipBrightness`.
@@ -2051,5 +2077,6 @@ RandCoarseDropoutD = RandCoarseDropoutDict = RandCoarseDropoutd
 HistogramNormalizeD = HistogramNormalizeDict = HistogramNormalized
 RandCoarseShuffleD = RandCoarseShuffleDict = RandCoarseShuffled
 FlipBrightnessD = FlipBrightnessDict = FlipBrightnessd
+LogCompressIntensityD = LogCompressIntensityDict = LogCompressIntensityd
 ForegroundMaskD = ForegroundMaskDict = ForegroundMaskd
 ComputeHoVerMapsD = ComputeHoVerMapsDict = ComputeHoVerMapsd
