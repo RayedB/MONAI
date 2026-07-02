@@ -41,8 +41,7 @@ terminal `stage:done` are advanced by **humans only**.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> triage: form filed (intake)
-    [*] --> test_design: /request-transform (guided — already clear)
+    [*] --> triage: filed — form or /request-transform (intake)
     triage --> triage: needs clarification (comment)
     triage --> test_design: triage agent / /triage-request — clear
     triage --> [*]: rejected — invalid · out-of-scope · duplicate (closed not planned)
