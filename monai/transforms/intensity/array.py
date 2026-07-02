@@ -80,6 +80,7 @@ __all__ = [
     "HistogramNormalize",
     "IntensityRemap",
     "RandIntensityRemap",
+    "LogCompressIntensity",
     "FlipBrightness",
     "ForegroundMask",
     "ComputeHoVerMaps",
@@ -2712,6 +2713,36 @@ class RandIntensityRemap(RandomizableTransform):
                 img = IntensityRemap(self.kernel_size, self.R.choice([-self.slope, self.slope]))(img)
 
         return img
+
+
+class LogCompressIntensity(Transform):
+    """
+    Compress dynamic range by applying a natural logarithm mapping element-wise: ``out = log1p(in)``.
+
+    Very bright values are pulled toward the rest of the distribution while dark detail near zero
+    is preserved. The mapping is applied independently to every voxel or pixel with no cross-channel
+    statistics.
+
+    Integer inputs are promoted to ``float32``; floating-point inputs keep their dtype.
+
+    Note:
+        Values less than or equal to ``-1`` follow the underlying ``log1p`` semantics (``-inf`` at
+        ``-1``, ``NaN`` below ``-1``). For CT Hounsfield units, consider shifting intensities first
+        (e.g. with :py:class:`monai.transforms.ShiftIntensity`).
+    """
+
+    backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
+
+    def __call__(self, img: NdarrayOrTensor) -> NdarrayOrTensor:
+        """
+        Apply the transform to `img`.
+        """
+        img = convert_to_tensor(img, track_meta=get_track_meta())
+        img_t = convert_to_tensor(img, track_meta=False)
+        compute_dtype = torch.float32 if not img_t.dtype.is_floating_point else img_t.dtype
+        img_t, *_ = convert_data_type(img_t, dtype=compute_dtype)
+        ret = torch.log1p(img_t)
+        return convert_to_dst_type(ret, img, dtype=compute_dtype)[0]
 
 
 class FlipBrightness(Transform):
