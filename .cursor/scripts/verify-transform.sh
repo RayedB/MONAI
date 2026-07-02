@@ -13,6 +13,14 @@ set -euo pipefail
 snake="${1:?usage: verify-transform.sh <snake_name> <category>}"
 category="${2:?usage: verify-transform.sh <snake_name> <category>}"
 
+# Interpreter: prefer the repo venv when it exists (local runs must not depend on
+# the shell having activated it); cloud VMs have no venv — environment.json
+# installs into the system python, so PATH is already correct there.
+repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
+if [ -x "${repo_root}/.venv/bin/python" ]; then
+  PATH="${repo_root}/.venv/bin:${PATH}"
+fi
+
 files=(
   "monai/transforms/${category}/array.py"
   "monai/transforms/${category}/dictionary.py"
