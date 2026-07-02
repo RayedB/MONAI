@@ -30,19 +30,17 @@ for a transform request. See `LIFECYCLE.md` at the repo root: this is the `stage
 
 ## On the human's decision
 **Approve** — only on an explicit yes. Record the approver (their name, or `git config user.name`),
-then **dispatch the cloud scaffold automation directly** — the approver's machine pokes the
-automation's webhook, so the hand-off is instant and never waits on a CI runner queue:
+then run the **single atomic gate action** — label swap + approval comment + cloud dispatch in one
+deterministic script (never run the three steps individually; a partial execution leaves the
+machine in a lying state):
 ```
-gh issue edit <n> --remove-label "stage:test-review" --add-label "stage:scaffold"
-gh issue comment <n> --body "✅ Test design approved by <approver> (<date>). Advancing to scaffold."
-curl -sS -X POST "$CURSOR_AUTOMATION_WEBHOOK_URL" \
-  -H "Authorization: Bearer $CURSOR_AUTOMATION_WEBHOOK_TOKEN" \
-  -H 'Content-Type: application/json' \
-  --data "{\"event\":\"stage:scaffold\",\"issue_number\":\"<n>\",\"repository\":\"RayedB/MONAI\",\"issue_url\":\"https://github.com/RayedB/MONAI/issues/<n>\"}"
+.cursor/scripts/approve-dispatch.sh <n> "<approver>"
 ```
-The two `CURSOR_AUTOMATION_WEBHOOK_*` values come from the approver's local environment (shell
-profile) — never commit them. If they aren't set, fall back to the CI relay:
-`gh workflow run scaffold-agent.yml -f issue=<n>` (same webhook, via Actions — may queue).
+It POSTs the automation's webhook from the approver's machine (instant — no CI queue), reading
+`CURSOR_AUTOMATION_WEBHOOK_*` from the approver's environment (never committed). **Show the
+script's output** — it must end with the dispatch confirmation (`{"success":true,...}`). If it
+fails on missing env, fall back to the CI relay: `gh workflow run scaffold-agent.yml -f issue=<n>`
+(same webhook, via Actions — may queue).
 
 Then say plainly: the tests are approved and **the approval itself dispatched the builder** — the
 cloud agent builds from the approved test design and opens a PR. The resulting code goes through
