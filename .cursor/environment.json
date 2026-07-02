@@ -1,3 +1,3 @@
 {
-  "install": "pip install --upgrade pip setuptools wheel && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install ninja packaging parameterized && pip install $(grep -E '^(isort|black|ruff)' requirements-dev.txt | tr -d ' ' | tr '\\n' ' ') && pip install -e . --no-build-isolation"
+  "install": "pip install --upgrade pip setuptools wheel && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install ninja packaging parameterized && pip install $(grep -E '^(isort|black|ruff)' requirements-dev.txt | tr -d ' ' | tr '\\n' ' ') && pip install -e . --no-build-isolation && (gh auth setup-git || true)"
 }
