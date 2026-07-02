@@ -97,14 +97,15 @@ reference test:
 - **One numerical / dtype edge** (e.g. overflow / clipping, dtype preserved, zeros / negatives).
 
 ## Step 4 — Verify (never finish red)
-Run, **show the commands and their output**, and fix until everything is green:
+Run the **scoped verifier** — it formats/lints only the files you touched (repo pins), checks both
+docs registrations, and runs the paired tests (~1 min). **Show its output**, fix until green:
 ```bash
-./runtests.sh --autofix                 # isort + black + ruff + copyright (may reformat short TEST_CASEs)
-./runtests.sh --ruff --mypy             # lint + static types
-python -m unittest tests.transforms.test_<snake> tests.transforms.test_<snake>d -v
-#   (or the quick suite: ./runtests.sh -u --quick)
+./.cursor/scripts/verify-transform.sh <snake> <category>
 ```
-If `--mypy` or a test fails, fix and re-run. (Requires the MONAI dev env — torch installed.)
+The **full** repo gates (isort/black/ruff/**mypy** over everything + the suites) run in CI on the
+PR and are authoritative — do **not** run repo-wide `./runtests.sh --autofix` from a scaffold: it
+reformats unrelated files and pollutes the PR. (Working locally with time to spare?
+`./runtests.sh --ruff --mypy` before pushing catches type errors earlier.)
 
 ## Step 5 — Report
 - **Files created / modified** — list all, including `monai/transforms/__init__.py` and
